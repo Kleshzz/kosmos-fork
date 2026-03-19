@@ -4,5 +4,5 @@
 
 - [API](api/) - работа и использование API ядра
 - [Drivers](drivers/) - работа драйверов
-- [OS Architecture](os_arch.pdf/) - архитектура ядра
-- [OS Boot](os_boot.pdf/) - запуск и инициализация ядра
+- [OS Architecture](os_arch.png/) - архитектура ядра
+- [OS Boot](os_boot.png/) - запуск и инициализация ядра

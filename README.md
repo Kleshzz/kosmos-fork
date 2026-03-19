@@ -4,7 +4,7 @@
 **Текущая версия:** `0.3.1`
 
 <p align="center">
-  <img src="docs/logo.png" width="250" alt="logo">
+  <img src="docs/logo_outline.svg" width="250"/>
 </p>
 
 **[🕒 Список изменений](CHANGELOG.md)**
