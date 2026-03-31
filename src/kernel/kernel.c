@@ -19,6 +19,7 @@ const unsigned int multiboot_header[] = {
 #include "../libs/io.h"
 #include "../libs/device.h"
 #include "../libs/time.h"
+#include "../libs/string.h"
 
 unsigned int EXECUTE_PROGRAM = 0;
 
@@ -34,6 +35,7 @@ __attribute__((section(".kernel_loop"))) void kernel_loop(void) {
 
 			EXECUTE_PROGRAM = 0;
 		}
+        time_sleep(1000);
 	}
 }
 
@@ -119,13 +121,24 @@ void logo(){
 }
 
 void test(){
-	struct dev_info* ata = devman_get_first_device_by_specs(DEV_TYPE_VIRT, DEV_BLOCK, VIRT_STORAGE_CONTROLLER, VIRT_STORAGE_ATA_DRIVE);
-	if (ata != 0){
-		unsigned char* buffer[512] = {0};
-		_read_sector(ata->id, 0, buffer);
-		buffer[50] = 0;
-		kput(buffer);
-	}
+    kclear();
+	//struct dev_info* ata = devman_get_first_device_by_specs(DEV_TYPE_VIRT, DEV_BLOCK, VIRT_STORAGE_CONTROLLER, VIRT_STORAGE_ATA_DRIVE);
+	//if (ata != 0){
+	//	unsigned char* buffer[512] = {0};
+	//	_read_sector(ata->id, 0, buffer);
+	//	buffer[50] = 0;
+	//	kput(buffer);
+	//}
+    
+    struct dev_info* part = devman_get_first_device_by_specs(DEV_TYPE_VIRT, DEV_BLOCK, VIRT_PARTITION, 0);
+    if (part != 0){
+        unsigned char id_str[10];
+        int len = itos(part->id, id_str);
+        id_str[len] = 0;
+        kput(id_str);
+    }
+    
+    
 }
 
 // Main
@@ -159,9 +172,9 @@ void kmain(void){
 	kprinti(found_drivers);
 	kput(" drivers successfully attached.\n");
 
-	test();
-
 	logo();
+    
+    test();
 
 	// Endless loop
 	kernel_loop();

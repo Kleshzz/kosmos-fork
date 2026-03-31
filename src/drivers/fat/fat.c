@@ -9,11 +9,12 @@
 #include "../../libs/memory.h"
 #include "../../libs/string.h"
 #include "../../libs/fat12.h"
+#include "../../libs/time.h"
 
-int vfs_read(unsigned char file_name, unsigned char dst*);
-int vfs_write(unsigned char file_name, unsigned char src*);
-int vfs_readdir(unsigned char dst*);
-int vfs_getpart(unsigned int dst*);
+int vfs_read(unsigned char file_name, unsigned char* dst);
+int vfs_write(unsigned char file_name, unsigned char* src);
+int vfs_readdir(unsigned char* dst);
+int vfs_getpart(unsigned int* dst);
 
 void* fat_funcs[] = {
 
@@ -22,43 +23,113 @@ void* fat_funcs[] = {
 int fat_init(struct dev_info* device){
     // определение файловой системы FAT12. если не определена то возврат 0, определена 1
     struct part_disk_info* pdi = (struct part_disk_info*)device->adv_info;
+
+    kput("\n");
+    kput("FAT16 init...\nDevice ID: ");
+    kprinti(device->id);
+    kput("\n");
+    
+    if (pdi->part_type != 0x0E) return 0;
+    
+    kput("Number sectors: ");
+    kprinti(pdi->num_sectors);
+    kput("\n");
+    kput("LBA start: ");
+    kprinti(pdi->lba_start);
+    kput("\n");
+
     unsigned char first_sector[512];
     _read_sector(pdi->parrent_disk->id, pdi->lba_start, first_sector);
-
-    unsigned char fs_type[9] = {0};
-    memcpy(fs_type, &first_sector[54], 8);
+    
+    unsigned char fs_type[9];
+    memcpy(fs_type, first_sector + 0x36, 8);
     fs_type[8] = 0;
 
-    if (!streql("FAT12   ", fs_type, 8)) return 0; // не подходит
+    unsigned char FAT16_TYPE_STR[] = {'F','A','T','1','6',0x20,0x20,0x20};
+    if (!is_str_equally(fs_type, FAT16_TYPE_STR)) return 0;
 
-    struct fat12_info* f12i = kmalloc(sizeof(struct fat12_info));
-    memcpy(f12i->fs_label, fs_type, 8);
+    kput("File System: ");
+    kput(fs_type);
+    kput("\n");
 
-    // BPB
-    f12i->bytes_per_sector    = first_sector[11] | (first_sector[12] << 8);
-    f12i->sectors_per_cluster = first_sector[13];
-    f12i->reserved_sectors    = first_sector[14] | (first_sector[15] << 8);
-    f12i->num_fats            = first_sector[16];
-    f12i->root_entry_count    = first_sector[17] | (first_sector[18] << 8);
-    f12i->total_sectors16     = first_sector[19] | (first_sector[20] << 8);
-    f12i->sectors_per_fat     = first_sector[22] | (first_sector[23] << 8);
-    f12i->total_sectors32     = first_sector[32] | (first_sector[33] << 8) |(first_sector[34] << 16) | (first_sector[35] << 24);
+    unsigned char volume_label[12];
+    memcpy(volume_label, first_sector + 0x2B, 11);
+    volume_label[11] = 0;
 
-    unsigned int total_sectors = f12i->total_sectors16 ? f12i->total_sectors16 : f12i->total_sectors32;
+    kput("Volume Label: ");
+    kput(volume_label);
+    kput("\n");
 
-    // вычисляем смещения LBA
-    f12i->fat_start_lba  = f12i->reserved_sectors; // FAT сразу после зарезервированных секторов
-    f12i->root_start_lba = f12i->fat_start_lba + f12i->num_fats * f12i->sectors_per_fat;
 
-    // размер root в секторах
-    unsigned int root_dir_sectors = ((f12i->root_entry_count * 32) + (f12i->bytes_per_sector - 1)) / f12i->bytes_per_sector;
+    // Bytes per sector
+    unsigned short bytes_per_sector;
+    memcpy(&bytes_per_sector, first_sector + 0x0B, 2);
+    kput("Bytes per sector: ");
+    kprinti(bytes_per_sector);
+    kput("\n");
 
-    f12i->data_start_lba       = f12i->root_start_lba + root_dir_sectors;
-    f12i->total_data_clusters  = (total_sectors - f12i->data_start_lba) / f12i->sectors_per_cluster;
+    // Sectors per cluster
+    unsigned char sectors_per_cluster;
+    memcpy(&sectors_per_cluster, first_sector + 0x0D, 1);
+    kput("Sectors per cluster: ");
+    kprinti(sectors_per_cluster);
+    kput("\n");
 
-    f12i->fat_cache      = NULL;
-    f12i->root_dir_cache = NULL;
+    // Reserved sectors
+    unsigned short reserved_sectors;
+    memcpy(&reserved_sectors, first_sector + 0x0E, 2);
+    kput("Reserved sectors: ");
+    kprinti(reserved_sectors);
+    kput("\n");
 
+    // Number of fats
+    unsigned char number_of_fats;
+    memcpy(&number_of_fats, first_sector + 0x10, 1);
+    kput("Number of fats: ");
+    kprinti(number_of_fats);
+    kput("\n");
+
+    // Max root dir entries
+    unsigned short max_root_dir_entries;
+    memcpy(&max_root_dir_entries, first_sector + 0x11, 2);
+    kput("Max root dir entries: ");
+    kprinti(max_root_dir_entries);
+    kput("\n");
+
+    // Sectors per FAT
+    unsigned short sectors_per_fat;
+    memcpy(&sectors_per_fat, first_sector + 0x16, 2);
+    kput("Sectors per FAT: ");
+    kprinti(sectors_per_fat);
+    kput("\n");
+
+    // FAT tables
+    unsigned int fat_start_lba = pdi->lba_start + reserved_sectors;
+    kput("FAT start LBA: ");
+    kprinti(fat_start_lba);
+    kput("\n");
+    unsigned int fat_size_sectors = sectors_per_fat * number_of_fats;
+    kput("FAT size sectors: ");
+    kprinti(fat_size_sectors);
+    kput("\n");
+
+    // Root dir
+    unsigned int root_dir_start_lba = fat_start_lba + fat_size_sectors;
+    kput("Root Directory Start LBA: ");
+    kprinti(root_dir_start_lba);
+    kput("\n");
+    unsigned int root_dir_size_sectors = ((max_root_dir_entries * 32) + (bytes_per_sector - 1)) / bytes_per_sector;
+    kput("Root Directory size sectors: ");
+    kprinti(root_dir_size_sectors);
+    kput("\n");
+
+    // Data area
+    unsigned int data_start_lba = root_dir_start_lba + root_dir_size_sectors;
+
+
+    kput("\n");
+
+    time_sleep(3000);
 
     return 1;
 }
