@@ -96,5 +96,5 @@ void sys_set_display_cursor_pos_x(struct registers_struct* args, struct register
 }
 
 void sys_set_display_cursor_pos_y(struct registers_struct* args, struct registers_struct* result){
-    _set_display_cursor_pos_x(result->ebx, result->ecx);
+    _set_display_cursor_pos_y(result->ebx, result->ecx);
 }
