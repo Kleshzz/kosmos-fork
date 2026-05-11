@@ -24,7 +24,7 @@ int drvman_register_driver(struct driver_info* driver, struct dev_info* device){
     int (*init)(struct dev_info*) = (int (*)(struct dev_info*))(driver->init);
     int probe_result = 0;
     if (probe != 0) probe_result = probe(device);
-    else probe_result = init(device);;
+    else probe_result = init(device);
 
     return DRIVER_COUNT-1;
 }
